@@ -65,8 +65,16 @@ btnContinue.addEventListener("click", async () => {
       }
     });
 
-    if (!response || !response.ok) {
-      throw new Error(response?.error || "Không thể khởi chạy tiến trình.");
+    if (chrome.runtime.lastError) {
+       throw new Error(chrome.runtime.lastError.message);
+    }
+    
+    if (!response) {
+       throw new Error("Không nhận phản hồi từ background");
+    }
+    
+    if (!response.ok) {
+       throw new Error(response.error || "Lỗi chạy tiến trình");
     }
 
     showToast(`Đã mở ${response.totalTabs} tab để kiểm tra.`, false);

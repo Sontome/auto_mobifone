@@ -26,7 +26,69 @@
 
     run(phone, promoCode);
   });
+  ext.runtime.onMessage.addListener((message) => {
 
+    if (message.type !== "CHECK_CARD_SERIAL") return;
+  
+    return runCheck(message.payload.serial);
+  });
+  async function runCheck(serial) {
+
+    const input = document.querySelector(
+      'input[name="txtCardSerialNum"]'
+    );
+  
+    const btn = document.querySelector(
+      'input[name="btnView"]'
+    );
+  
+    if (!input || !btn) {
+      return { pass: "Không tìm thấy form" };
+    }
+  
+    input.value = serial;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  
+    btn.click();
+  
+    await waitPassLoaded();
+  
+    const passInput = document.querySelector(
+      'input[name="txtCardPass"]'
+    );
+  
+    return {
+      pass: passInput?.value?.trim() || "Trống"
+    };
+  }
+  
+  function waitPassLoaded() {
+    return new Promise((resolve) => {
+  
+      let count = 0;
+  
+      const timer = setInterval(() => {
+  
+        const el = document.querySelector(
+          'input[name="txtCardPass"]'
+        );
+  
+        if (el && el.value.trim()) {
+          clearInterval(timer);
+          resolve();
+        }
+  
+        count++;
+  
+        if (count > 20) {
+          clearInterval(timer);
+          resolve();
+        }
+  
+      }, 500);
+    });
+  }
   async function run(phone, promoCode) {
     console.log("[EXT] Step 1: find menu");
 

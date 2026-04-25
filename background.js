@@ -68,7 +68,7 @@ async function runProcess(phones, promoCode) {
   let done = 0;
   const total = phones.length;
 
-  const CONCURRENT = 5; // mở 5 tab cùng lúc
+  const CONCURRENT = 20; // mở 5 tab cùng lúc
 
   sendProgress(done, total);
 

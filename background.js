@@ -78,57 +78,46 @@ async function handleCardCheck(payload) {
   const serials = payload?.serials || [];
   const results = [];
 
-  console.log("[CARD] bắt đầu check:", serials.length, "serial");
+  console.log("[CARD] dùng tab đang mở sẵn");
+
+  const tabs = await ext.tabs.query({});
+
+  const targetTab = tabs.find(tab =>
+    tab.url &&
+    tab.url.includes("10.38.45.87/1090/Block_display_scratch.jsp")
+  );
+
+  if (!targetTab) {
+    return {
+      ok: false,
+      error: "Chưa mở sẵn web tra cứu thẻ."
+    };
+  }
+
+  const tabId = targetTab.id;
+
+  console.log("[CARD] tìm thấy tab:", tabId);
 
   for (const raw of serials) {
     const serial = String(raw).trim();
-
     if (!serial) continue;
 
-    console.log("[CARD] xử lý serial:", serial);
-
     try {
-      const tab = await ext.tabs.create({
-        url: "https://10.38.45.87/1090/Block_display_scratch.jsp",
-        active: false
-      });
+      console.log("[CARD] check:", serial);
 
-      const tabId = tab.id;
-
-      console.log("[CARD] mở tab thành công:", tabId);
-
-      await waitTabLoaded(tabId);
-
-      console.log("[CARD] tab load xong:", tabId);
-
-      await sleep(2000);
-
-      console.log("[CARD] gửi message sang content.js");
-
-      await ext.scripting.executeScript({
-        target: { tabId },
-        files: ["content.js"]
-      });
-      
-      console.log("[CARD] đã inject content.js");
-      
-      await sleep(500);
-      
       const response = await ext.tabs.sendMessage(tabId, {
         type: "CHECK_CARD_SERIAL",
         payload: { serial }
       });
 
-      console.log("[CARD] response content:", response);
+      console.log("[CARD] result:", response);
 
       results.push({
         serial,
         pass: response?.pass || "Không có"
       });
 
-      await ext.tabs.remove(tabId);
-
-      console.log("[CARD] đã đóng tab:", tabId);
+      await sleep(1500);
 
     } catch (err) {
       console.error("[CARD] lỗi:", err);
@@ -139,8 +128,6 @@ async function handleCardCheck(payload) {
       });
     }
   }
-
-  console.log("[CARD] hoàn tất");
 
   return {
     ok: true,

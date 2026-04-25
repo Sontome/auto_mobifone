@@ -27,28 +27,27 @@
     run(phone, promoCode);
   });
   ext.runtime.onMessage.addListener((message) => {
-    if (message.type !== "CHECK_CARD_SERIAL") return;
+
+    if (message.type === "SUBMIT_SERIAL") {
+      return submitSerial(message.payload.serial);
+    }
   
-    return runCheck(message.payload.serial);
+    if (message.type === "READ_RESULT") {
+      return readResult();
+    }
+  
   });
   
-  async function runCheck(serial) {
-  
+  function submitSerial(serial) {
     const input = document.querySelector(
       'input[name="txtCardSerialNum"]'
     );
   
     if (!input) {
-      return { pass: "Không thấy ô serial" };
+      return { ok: false };
     }
   
     input.value = serial;
-    input.focus();
-  
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-  
-    await sleep(500);
   
     if (typeof window.fCommit === "function") {
       window.fCommit();
@@ -56,36 +55,17 @@
       document.forms["frmLookup"].submit();
     }
   
-    const pass = await waitPass();
-  
-    return { pass };
+    return { ok: true };
   }
   
-  function waitPass() {
-    return new Promise(resolve => {
+  function readResult() {
+    const pass = document.querySelector(
+      'input[name="txtCardPass"]'
+    );
   
-      let count = 0;
-  
-      const timer = setInterval(() => {
-  
-        const el = document.querySelector(
-          'input[name="txtCardPass"]'
-        );
-  
-        if (el && el.value.trim()) {
-          clearInterval(timer);
-          resolve(el.value.trim());
-        }
-  
-        count++;
-  
-        if (count > 20) {
-          clearInterval(timer);
-          resolve("Không có");
-        }
-  
-      }, 500);
-    });
+    return {
+      pass: pass?.value?.trim() || "Không có"
+    };
   }
   async function run(phone, promoCode) {
     console.log("[EXT] Step 1: find menu");

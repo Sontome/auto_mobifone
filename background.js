@@ -75,10 +75,9 @@ ext.runtime.onMessage.addListener((message) => {
 
 });
 async function handleCardCheck(payload) {
+
   const serials = payload?.serials || [];
   const results = [];
-
-  console.log("[CARD] dùng tab đang mở sẵn");
 
   const tabs = await ext.tabs.query({});
 
@@ -90,49 +89,71 @@ async function handleCardCheck(payload) {
   if (!targetTab) {
     return {
       ok: false,
-      error: "Chưa mở sẵn web tra cứu thẻ."
+      error: "Chưa mở web."
     };
   }
 
   const tabId = targetTab.id;
 
-  console.log("[CARD] tìm thấy tab:", tabId);
-
   for (const raw of serials) {
+
     const serial = String(raw).trim();
-    if (!serial) continue;
 
-    try {
-      console.log("[CARD] check:", serial);
+    console.log("[CARD] check:", serial);
 
-      const response = await ext.tabs.sendMessage(tabId, {
-        type: "CHECK_CARD_SERIAL",
-        payload: { serial }
-      });
+    await inject(tabId);
 
-      console.log("[CARD] result:", response);
+    await ext.tabs.sendMessage(tabId, {
+      type: "SUBMIT_SERIAL",
+      payload: { serial }
+    });
 
-      results.push({
-        serial,
-        pass: response?.pass || "Không có"
-      });
+    await waitTabReloadResult(tabId);
 
-      await sleep(1500);
+    await inject(tabId);
 
-    } catch (err) {
-      console.error("[CARD] lỗi:", err);
+    const result = await ext.tabs.sendMessage(tabId, {
+      type: "READ_RESULT"
+    });
 
-      results.push({
-        serial,
-        pass: "Lỗi"
-      });
-    }
+    results.push({
+      serial,
+      pass: result?.pass || "Không có"
+    });
   }
 
   return {
     ok: true,
     results
   };
+}
+async function inject(tabId) {
+  await ext.scripting.executeScript({
+    target: { tabId },
+    files: ["content.js"]
+  });
+
+  await sleep(500);
+}
+
+async function waitTabReloadResult(tabId) {
+  return new Promise((resolve) => {
+
+    const listener = (id, info, tab) => {
+
+      if (
+        id === tabId &&
+        info.status === "complete" &&
+        tab.url.includes("?p_display_scratch=YES")
+      ) {
+        ext.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+
+    };
+
+    ext.tabs.onUpdated.addListener(listener);
+  });
 }
 async function runProcess(phones, promoCode) {
   let done = 0;

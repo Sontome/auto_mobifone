@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MobiFone Checker</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1>MobiFone Tool</h1>
+        <p>Tiện ích kiểm tra nhanh dữ liệu thuê bao</p>
+      </header>
+
+      <section class="actions">
+        <button id="btn-card" class="btn btn-secondary" type="button">
+          Check thẻ cào
+        </button>
+        <button id="btn-promo" class="btn btn-primary" type="button">
+          Check gói khuyến mãi
+        </button>
+      </section>
+
+      <section id="status-panel" class="status-panel is-hidden" aria-live="polite">
+        <div class="status-row">
+          <span>Đang xử lý:</span>
+          <strong id="progress-text">0/0</strong>
+        </div>
+      </section>
+    </main>
+
+    <div id="modal-overlay" class="modal-overlay is-hidden">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">Check gói khuyến mãi</h2>
+
+        <label class="field">
+          <span>Tên gói cước khuyến mãi</span>
+          <textarea
+            id="promo-code"
+            rows="2"
+            placeholder="VD: M70, C90N..."
+          ></textarea>
+        </label>
+
+        <label class="field">
+          <span>Danh sách số điện thoại (mỗi dòng 1 số)</span>
+          <textarea
+            id="phone-list"
+            rows="6"
+            placeholder="0912345678&#10;0987654321&#10;0977xxxxxx"
+          ></textarea>
+        </label>
+
+        <p id="modal-error" class="modal-error is-hidden"></p>
+
+        <div class="modal-actions">
+          <button id="btn-cancel" class="btn btn-ghost" type="button">Hủy</button>
+          <button id="btn-continue" class="btn btn-primary" type="button">Tiếp tục</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast is-hidden"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

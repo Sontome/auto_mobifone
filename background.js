@@ -63,7 +63,62 @@ ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+ext.runtime.onMessage.addListener((message) => {
 
+  if (!message || typeof message !== "object") {
+    return;
+  }
+
+  if (message.type === "START_CARD_CHECK") {
+    return handleCardCheck(message.payload);
+  }
+
+});
+async function handleCardCheck(payload) {
+  const serials = payload?.serials || [];
+
+  const results = [];
+
+  for (const raw of serials) {
+    const serial = String(raw).trim();
+    if (!serial) continue;
+
+    try {
+      const tab = await ext.tabs.create({
+        url: "https://10.38.45.87/1090/Block_display_scratch.jsp",
+        active: false
+      });
+
+      const tabId = tab.id;
+
+      await waitTabLoaded(tabId);
+      await sleep(1500);
+
+      const response = await ext.tabs.sendMessage(tabId, {
+        type: "CHECK_CARD_SERIAL",
+        payload: { serial }
+      });
+
+      results.push({
+        serial,
+        pass: response?.pass || "Không có"
+      });
+
+      await ext.tabs.remove(tabId);
+
+    } catch (err) {
+      results.push({
+        serial,
+        pass: "Lỗi"
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    results
+  };
+}
 async function runProcess(phones, promoCode) {
   let done = 0;
   const total = phones.length;

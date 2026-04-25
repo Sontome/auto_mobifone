@@ -76,12 +76,16 @@ ext.runtime.onMessage.addListener((message) => {
 });
 async function handleCardCheck(payload) {
   const serials = payload?.serials || [];
-
   const results = [];
+
+  console.log("[CARD] bắt đầu check:", serials.length, "serial");
 
   for (const raw of serials) {
     const serial = String(raw).trim();
+
     if (!serial) continue;
+
+    console.log("[CARD] xử lý serial:", serial);
 
     try {
       const tab = await ext.tabs.create({
@@ -91,13 +95,22 @@ async function handleCardCheck(payload) {
 
       const tabId = tab.id;
 
+      console.log("[CARD] mở tab thành công:", tabId);
+
       await waitTabLoaded(tabId);
-      await sleep(1500);
+
+      console.log("[CARD] tab load xong:", tabId);
+
+      await sleep(2000);
+
+      console.log("[CARD] gửi message sang content.js");
 
       const response = await ext.tabs.sendMessage(tabId, {
         type: "CHECK_CARD_SERIAL",
         payload: { serial }
       });
+
+      console.log("[CARD] response content:", response);
 
       results.push({
         serial,
@@ -106,13 +119,19 @@ async function handleCardCheck(payload) {
 
       await ext.tabs.remove(tabId);
 
+      console.log("[CARD] đã đóng tab:", tabId);
+
     } catch (err) {
+      console.error("[CARD] lỗi:", err);
+
       results.push({
         serial,
         pass: "Lỗi"
       });
     }
   }
+
+  console.log("[CARD] hoàn tất");
 
   return {
     ok: true,

@@ -32,13 +32,7 @@ async function run(phones, promoCode) {
 
     await waitLoaded(tab.id);
 
-    await chrome.tabs.sendMessage(tab.id, {
-      type: "AUTO_FILL_PROMO",
-      payload: {
-        phone,
-        promoCode
-      }
-    });
+    try { await chrome.tabs.sendMessage(tab.id, { type: "AUTO_FILL_PROMO", payload: { phone, promoCode } }); } catch (error) { console.warn("sendMessage fail, tab vẫn đã mở:", error); }
 
     done++;
 

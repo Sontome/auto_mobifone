@@ -1,16 +1,24 @@
 
+const ext = typeof browser !== "undefined" ? browser : chrome;
+
 const TARGET_URL = "http://10.3.17.135:9009/";
 const OPEN_DELAY_MS = 500;
 const AFTER_LOAD_DELAY_MS = 1800;
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log("[background] installed");
-});
+console.log("[background] loaded");
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+if (ext.runtime.onInstalled) {
+  ext.runtime.onInstalled.addListener(() => {
+    console.log("[background] installed");
+  });
+}
+
+ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== "START_PROMO_CHECK") {
     return false;
   }
+
+  console.log("[background] START_PROMO_CHECK", message);
 
   (async () => {
     try {
@@ -63,26 +71,36 @@ async function runProcess(phones, promoCode) {
 
   for (const phone of phones) {
     try {
-      const tab = await chrome.tabs.create({
+      console.log("[background] opening tab:", phone);
+
+      const tab = await ext.tabs.create({
         url: TARGET_URL,
         active: false
       });
 
-      if (!tab || !tab.id) {
-        throw new Error("Không tạo được tab mới.");
+      const tabId = tab?.id;
+
+      if (!tabId) {
+        throw new Error("Không lấy được tab id.");
       }
 
-      await waitTabLoaded(tab.id);
+      console.log("[background] opened tab:", tabId);
+
+      await waitTabLoaded(tabId);
       await sleep(AFTER_LOAD_DELAY_MS);
 
+      console.log("[background] send message:", tabId, phone, promoCode);
+
       try {
-        await chrome.tabs.sendMessage(tab.id, {
+        await ext.tabs.sendMessage(tabId, {
           type: "AUTO_FILL_PROMO",
           payload: {
             phone,
             promoCode
           }
         });
+
+        console.log("[background] sendMessage success:", tabId);
       } catch (msgError) {
         console.warn("[background] sendMessage fail:", msgError);
       }
@@ -106,7 +124,7 @@ async function runProcess(phones, promoCode) {
 
 function sendProgress(done, total) {
   try {
-    chrome.runtime.sendMessage({
+    ext.runtime.sendMessage({
       type: "PROMO_PROGRESS",
       payload: { done, total }
     });
@@ -126,17 +144,25 @@ function waitTabLoaded(tabId) {
         !finished
       ) {
         finished = true;
-        chrome.tabs.onUpdated.removeListener(listener);
+
+        ext.tabs.onUpdated.removeListener(listener);
+
+        console.log("[background] tab loaded:", tabId);
+
         resolve();
       }
     };
 
-    chrome.tabs.onUpdated.addListener(listener);
+    ext.tabs.onUpdated.addListener(listener);
 
     setTimeout(() => {
       if (!finished) {
         finished = true;
-        chrome.tabs.onUpdated.removeListener(listener);
+
+        ext.tabs.onUpdated.removeListener(listener);
+
+        console.log("[background] tab timeout loaded:", tabId);
+
         resolve();
       }
     }, 12000);

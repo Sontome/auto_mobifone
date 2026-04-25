@@ -47,7 +47,15 @@
         ok: true
       });
     }
-  
+    if (message.type === "READ_RESULT") {
+      const el = document.querySelector(
+        'input[name="txtCardPass"]'
+      );
+    
+      return Promise.resolve({
+        pass: el?.value?.trim() || ""
+      });
+    }
   });
   
   function submitSerial(serial) {

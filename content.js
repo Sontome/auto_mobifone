@@ -27,41 +27,90 @@
     run(phone, promoCode);
   });
   ext.runtime.onMessage.addListener((message) => {
-
     if (message.type !== "CHECK_CARD_SERIAL") return;
   
     return runCheck(message.payload.serial);
   });
   async function runCheck(serial) {
-
+    console.log("[CARD] bắt đầu:", serial);
+  
+    const form = document.forms["frmLookup"];
     const input = document.querySelector(
       'input[name="txtCardSerialNum"]'
     );
   
-    const btn = document.querySelector(
-      'input[name="btnView"]'
-    );
-  
-    if (!input || !btn) {
-      return { pass: "Không tìm thấy form" };
+    if (!form || !input) {
+      console.log("[CARD] không thấy form/input");
+      return { pass: "Không thấy form" };
     }
   
+    input.focus();
     input.value = serial;
+  
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   
-    btn.click();
+    console.log("[CARD] đã nhập serial:", input.value);
   
-    await waitPassLoaded();
+    await sleep(500);
   
-    const passInput = document.querySelector(
-      'input[name="txtCardPass"]'
-    );
+    try {
+      console.log("[CARD] gọi fCommit()");
   
-    return {
-      pass: passInput?.value?.trim() || "Trống"
-    };
+      if (typeof window.fCommit === "function") {
+        window.fCommit();
+      } else {
+        form.submit();
+      }
+  
+    } catch (e) {
+      console.log("[CARD] submit lỗi:", e);
+      form.submit();
+    }
+  
+    console.log("[CARD] đã submit");
+  
+    const result = await waitResult();
+  
+    console.log("[CARD] result:", result);
+  
+    return result;
   }
+  
+  function waitResult() {
+    return new Promise((resolve) => {
+  
+      let count = 0;
+  
+      const timer = setInterval(() => {
+  
+        const pass = document.querySelector(
+          'input[name="txtCardPass"]'
+        );
+  
+        if (pass && pass.value.trim()) {
+          clearInterval(timer);
+  
+          resolve({
+            pass: pass.value.trim()
+          });
+        }
+  
+        count++;
+  
+        if (count > 30) {
+          clearInterval(timer);
+  
+          resolve({
+            pass: "Không có dữ liệu"
+          });
+        }
+  
+      }, 1000);
+    });
+  }
+  
+  
   
   function waitPassLoaded() {
     return new Promise((resolve) => {

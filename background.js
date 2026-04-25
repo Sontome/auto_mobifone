@@ -63,64 +63,61 @@ ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+
 async function runProcess(phones, promoCode) {
   let done = 0;
   const total = phones.length;
 
+  const CONCURRENT = 5; // mở 5 tab cùng lúc
+
   sendProgress(done, total);
 
-  for (const phone of phones) {
-    try {
-      console.log("[background] opening tab:", phone);
+  for (let i = 0; i < phones.length; i += CONCURRENT) {
+    const batch = phones.slice(i, i + CONCURRENT);
 
-      const tab = await ext.tabs.create({
-        url: TARGET_URL,
-        active: false
-      });
+    await Promise.all(
+      batch.map(async (phone) => {
+        try {
+          console.log("[background] opening tab:", phone);
 
-      const tabId = tab?.id;
+          const tab = await ext.tabs.create({
+            url: TARGET_URL,
+            active: false
+          });
 
-      if (!tabId) {
-        throw new Error("Không lấy được tab id.");
-      }
+          const tabId = tab.id;
 
-      console.log("[background] opened tab:", tabId);
+          await waitTabLoaded(tabId);
+          await sleep(AFTER_LOAD_DELAY_MS);
 
-      await waitTabLoaded(tabId);
-      await sleep(AFTER_LOAD_DELAY_MS);
-
-      console.log("[background] send message:", tabId, phone, promoCode);
-
-      try {
-        await ext.tabs.sendMessage(tabId, {
-          type: "AUTO_FILL_PROMO",
-          payload: {
-            phone,
-            promoCode
+          try {
+            await ext.tabs.sendMessage(tabId, {
+              type: "AUTO_FILL_PROMO",
+              payload: {
+                phone,
+                promoCode
+              }
+            });
+          } catch (e) {
+            console.warn("[background] send fail:", e);
           }
-        });
 
-        console.log("[background] sendMessage success:", tabId);
-      } catch (msgError) {
-        console.warn("[background] sendMessage fail:", msgError);
-      }
+        } catch (err) {
+          console.error("[background] tab fail:", err);
+        }
 
-      done++;
-      sendProgress(done, total);
+        done++;
+        sendProgress(done, total);
+      })
+    );
 
-      await sleep(OPEN_DELAY_MS);
-    } catch (tabError) {
-      console.error("[background] tab error:", tabError);
-
-      done++;
-      sendProgress(done, total);
-
-      await sleep(OPEN_DELAY_MS);
-    }
+    await sleep(800); // nghỉ giữa batch
   }
 
   return total;
 }
+
+
 
 function sendProgress(done, total) {
   try {

@@ -31,89 +31,38 @@
   
     return runCheck(message.payload.serial);
   });
-  async function runCheck(serial) {
-    console.log("[CARD] bắt đầu:", serial);
   
-    const form = document.forms["frmLookup"];
+  async function runCheck(serial) {
+  
     const input = document.querySelector(
       'input[name="txtCardSerialNum"]'
     );
   
-    if (!form || !input) {
-      console.log("[CARD] không thấy form/input");
-      return { pass: "Không thấy form" };
+    if (!input) {
+      return { pass: "Không thấy ô serial" };
     }
   
-    input.focus();
     input.value = serial;
+    input.focus();
   
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   
-    console.log("[CARD] đã nhập serial:", input.value);
-  
     await sleep(500);
   
-    try {
-      console.log("[CARD] gọi fCommit()");
-  
-      if (typeof window.fCommit === "function") {
-        window.fCommit();
-      } else {
-        form.submit();
-      }
-  
-    } catch (e) {
-      console.log("[CARD] submit lỗi:", e);
-      form.submit();
+    if (typeof window.fCommit === "function") {
+      window.fCommit();
+    } else {
+      document.forms["frmLookup"].submit();
     }
   
-    console.log("[CARD] đã submit");
+    const pass = await waitPass();
   
-    const result = await waitResult();
-  
-    console.log("[CARD] result:", result);
-  
-    return result;
+    return { pass };
   }
   
-  function waitResult() {
-    return new Promise((resolve) => {
-  
-      let count = 0;
-  
-      const timer = setInterval(() => {
-  
-        const pass = document.querySelector(
-          'input[name="txtCardPass"]'
-        );
-  
-        if (pass && pass.value.trim()) {
-          clearInterval(timer);
-  
-          resolve({
-            pass: pass.value.trim()
-          });
-        }
-  
-        count++;
-  
-        if (count > 30) {
-          clearInterval(timer);
-  
-          resolve({
-            pass: "Không có dữ liệu"
-          });
-        }
-  
-      }, 1000);
-    });
-  }
-  
-  
-  
-  function waitPassLoaded() {
-    return new Promise((resolve) => {
+  function waitPass() {
+    return new Promise(resolve => {
   
       let count = 0;
   
@@ -125,14 +74,14 @@
   
         if (el && el.value.trim()) {
           clearInterval(timer);
-          resolve();
+          resolve(el.value.trim());
         }
   
         count++;
   
         if (count > 20) {
           clearInterval(timer);
-          resolve();
+          resolve("Không có");
         }
   
       }, 500);

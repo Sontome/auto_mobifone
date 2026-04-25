@@ -35,10 +35,10 @@ btnCard.addEventListener("click", async () => {
   try {
     const response = await ext.runtime.sendMessage({
       type: "START_CARD_CHECK",
-      payload: {
-        serials
-      }
+      payload: { serials }
     });
+    
+    console.log(response.results);
 
     if (!response?.ok) {
       throw new Error(response?.error || "Lỗi");

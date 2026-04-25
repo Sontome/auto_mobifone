@@ -60,7 +60,7 @@
   
   function readResult() {
     const pass = document.querySelector(
-      'input[name="txtCardPass"]'
+      'input[name="txtCardType"]'
     );
   
     return {

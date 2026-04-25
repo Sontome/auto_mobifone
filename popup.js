@@ -15,8 +15,43 @@ const progressText = document.getElementById("progress-text");
 
 let toastTimer = null;
 
-btnCard.addEventListener("click", () => {
-  showToast("Tính năng Check thẻ cào đang phát triển.", true);
+btnCard.addEventListener("click", async () => {
+  const rawSerials = prompt(
+    "Nhập serial (mỗi dòng 1 serial):"
+  );
+
+  if (!rawSerials) return;
+
+  const serials = rawSerials
+    .split(/\r?\n/)
+    .map(x => x.trim())
+    .filter(Boolean);
+
+  if (serials.length === 0) {
+    showToast("Không có serial hợp lệ.", true);
+    return;
+  }
+
+  try {
+    const response = await ext.runtime.sendMessage({
+      type: "START_CARD_CHECK",
+      payload: {
+        serials
+      }
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || "Lỗi");
+    }
+
+    showToast(`Đã mở ${serials.length} tab check thẻ.`, false);
+
+  } catch (error) {
+    showToast(
+      `Lỗi: ${error.message}`,
+      true
+    );
+  }
 });
 
 btnPromo.addEventListener("click", () => {

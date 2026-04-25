@@ -26,67 +26,7 @@
 
     run(phone, promoCode);
   });
-  ext.runtime.onMessage.addListener((msg) => {
 
-    if (msg.type === "SUBMIT_SERIAL") {
-      const serial = msg.payload.serial;
-  
-      const input = document.querySelector(
-        'input[name="txtCardSerialNum"]'
-      );
-  
-      input.value = serial;
-  
-      if (typeof window.fCommit === "function") {
-        window.fCommit();
-      } else {
-        document.forms[0].submit();
-      }
-  
-      return Promise.resolve({
-        ok: true
-      });
-    }
-    if (message.type === "READ_RESULT") {
-      const el = document.querySelector(
-        'input[name="txtCardType"]'
-      );
-    
-      return Promise.resolve({
-        pass: el?.value?.trim() || ""
-      });
-    }
-  });
-  
-  function submitSerial(serial) {
-    const input = document.querySelector(
-      'input[name="txtCardSerialNum"]'
-    );
-  
-    if (!input) {
-      return { ok: false };
-    }
-  
-    input.value = serial;
-  
-    if (typeof window.fCommit === "function") {
-      window.fCommit();
-    } else {
-      document.forms["frmLookup"].submit();
-    }
-  
-    return { ok: true };
-  }
-  
-  function readResult() {
-    const pass = document.querySelector(
-      'input[name="txtCardType"]'
-    );
-  
-    return {
-      pass: pass?.value?.trim() || "Không có"
-    };
-  }
   async function run(phone, promoCode) {
     console.log("[EXT] Step 1: find menu");
 

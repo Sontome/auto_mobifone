@@ -26,14 +26,26 @@
 
     run(phone, promoCode);
   });
-  ext.runtime.onMessage.addListener((message) => {
+  ext.runtime.onMessage.addListener((msg) => {
 
-    if (message.type === "SUBMIT_SERIAL") {
-      return submitSerial(message.payload.serial);
-    }
+    if (msg.type === "SUBMIT_SERIAL") {
+      const serial = msg.payload.serial;
   
-    if (message.type === "READ_RESULT") {
-      return readResult();
+      const input = document.querySelector(
+        'input[name="txtCardSerialNum"]'
+      );
+  
+      input.value = serial;
+  
+      if (typeof window.fCommit === "function") {
+        window.fCommit();
+      } else {
+        document.forms[0].submit();
+      }
+  
+      return Promise.resolve({
+        ok: true
+      });
     }
   
   });

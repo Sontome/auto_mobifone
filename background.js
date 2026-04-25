@@ -105,6 +105,14 @@ async function handleCardCheck(payload) {
 
       console.log("[CARD] gửi message sang content.js");
 
+      await ext.tabs.executeScript(tabId, {
+        file: "content.js"
+      });
+      
+      console.log("[CARD] đã inject content.js");
+      
+      await sleep(500);
+      
       const response = await ext.tabs.sendMessage(tabId, {
         type: "CHECK_CARD_SERIAL",
         payload: { serial }

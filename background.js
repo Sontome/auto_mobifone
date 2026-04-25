@@ -1,125 +1,202 @@
-
 const ext = typeof browser !== "undefined" ? browser : chrome;
 
 const TARGET_URL = "http://10.3.17.135:9009/";
-const OPEN_DELAY_MS = 500;
+const CARD_URL_KEYWORD = "10.38.45.87/1090/Block_display_scratch.jsp";
+
 const AFTER_LOAD_DELAY_MS = 1800;
 
 console.log("[background] loaded");
 
+/* ===============================
+   INSTALL
+================================= */
 if (ext.runtime.onInstalled) {
   ext.runtime.onInstalled.addListener(() => {
     console.log("[background] installed");
   });
 }
 
+/* ===============================
+   MAIN MESSAGE LISTENER
+================================= */
 ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.type !== "START_PROMO_CHECK") {
+  if (!message || typeof message !== "object") {
     return false;
   }
 
-  console.log("[background] START_PROMO_CHECK", message);
+  /* ===============================
+     PROMO CHECK
+  ================================= */
+  if (message.type === "START_PROMO_CHECK") {
+    (async () => {
+      try {
+        const phones = Array.isArray(message.payload?.phones)
+          ? message.payload.phones
+          : [];
 
-  (async () => {
-    try {
-      const phones = Array.isArray(message.payload?.phones)
-        ? message.payload.phones
-        : [];
+        const promoCode = String(
+          message.payload?.promoCode || ""
+        ).trim();
 
-      const promoCode = String(message.payload?.promoCode || "").trim();
+        if (!phones.length) {
+          sendResponse({
+            ok: false,
+            error: "Không có số điện thoại."
+          });
+          return;
+        }
 
-      if (!phones.length) {
+        if (!promoCode) {
+          sendResponse({
+            ok: false,
+            error: "Thiếu tên gói cước."
+          });
+          return;
+        }
+
+        const total = await runPromoProcess(
+          phones,
+          promoCode
+        );
+
+        sendResponse({
+          ok: true,
+          totalTabs: total
+        });
+
+      } catch (error) {
+        console.error("[PROMO] lỗi:", error);
+
         sendResponse({
           ok: false,
-          error: "Không có số điện thoại."
+          error:
+            error?.message ||
+            "Không thể chạy kiểm tra."
         });
-        return;
       }
+    })();
 
-      if (!promoCode) {
-        sendResponse({
-          ok: false,
-          error: "Thiếu tên gói cước."
-        });
-        return;
-      }
-
-      const total = await runProcess(phones, promoCode);
-
-      sendResponse({
-        ok: true,
-        totalTabs: total
-      });
-    } catch (error) {
-      console.error("[background] fatal error:", error);
-
-      sendResponse({
-        ok: false,
-        error: error?.message || "Không thể khởi chạy tiến trình."
-      });
-    }
-  })();
-
-  return true;
-});
-
-ext.runtime.onMessage.addListener((message) => {
-
-  if (!message || typeof message !== "object") {
-    return;
+    return true;
   }
 
+  /* ===============================
+     CARD CHECK
+  ================================= */
   if (message.type === "START_CARD_CHECK") {
-    return handleCardCheck(message.payload);
+    (async () => {
+      try {
+        const result = await handleCardCheck(
+          message.payload
+        );
+
+        sendResponse(result);
+
+      } catch (error) {
+        console.error("[CARD] lỗi:", error);
+
+        sendResponse({
+          ok: false,
+          error:
+            error?.message ||
+            "Lỗi check thẻ cào."
+        });
+      }
+    })();
+
+    return true;
   }
 
+  return false;
 });
+
+/* ===============================
+   CARD CHECK
+================================= */
 async function handleCardCheck(payload) {
+  const serials = Array.isArray(payload?.serials)
+    ? payload.serials
+    : [];
 
-  const serials = payload?.serials || [];
-  const results = [];
+  if (!serials.length) {
+    return {
+      ok: false,
+      error: "Không có serial."
+    };
+  }
 
-  const tabs = await ext.tabs.query({});
-
-  const targetTab = tabs.find(tab =>
-    tab.url &&
-    tab.url.includes("10.38.45.87/1090/Block_display_scratch.jsp")
-  );
+  const targetTab = await findCardTab();
 
   if (!targetTab) {
     return {
       ok: false,
-      error: "Chưa mở web."
+      error:
+        "Hãy mở sẵn web tra cứu thẻ cào."
     };
   }
 
   const tabId = targetTab.id;
 
-  for (const raw of serials) {
+  console.log("[CARD] dùng tab:", tabId);
 
+  const results = [];
+
+  for (const raw of serials) {
     const serial = String(raw).trim();
+
+    if (!serial) continue;
 
     console.log("[CARD] check:", serial);
 
-    await inject(tabId);
+    try {
+      await waitStableTab(tabId);
 
-    await ext.tabs.sendMessage(tabId, {
-      type: "SUBMIT_SERIAL",
-      payload: { serial }
-    });
+      const submitRes = await safeSendMessage(
+        tabId,
+        {
+          type: "SUBMIT_SERIAL",
+          payload: { serial }
+        }
+      );
 
-    await waitTabReloadResult(tabId);
+      console.log(
+        "[CARD] submit:",
+        submitRes
+      );
 
-    await inject(tabId);
+      await waitResultPage(tabId);
+      await sleep(1500);
 
-    const result = await ext.tabs.sendMessage(tabId, {
-      type: "READ_RESULT"
-    });
+      const result = await safeSendMessage(
+        tabId,
+        {
+          type: "READ_RESULT"
+        }
+      );
 
-    results.push({
-      serial,
-      pass: result?.pass || "Không có"
-    });
+      console.log(
+        "[CARD] result:",
+        result
+      );
+
+      results.push({
+        serial,
+        pass:
+          result?.pass?.trim() ||
+          "Không có"
+      });
+
+    } catch (error) {
+      console.error(
+        "[CARD] fail:",
+        serial,
+        error
+      );
+
+      results.push({
+        serial,
+        pass: "Lỗi"
+      });
+    }
   }
 
   return {
@@ -127,50 +204,34 @@ async function handleCardCheck(payload) {
     results
   };
 }
-async function inject(tabId) {
-  await ext.scripting.executeScript({
-    target: { tabId },
-    files: ["content.js"]
-  });
 
-  await sleep(500);
-}
-
-async function waitTabReloadResult(tabId) {
-  return new Promise((resolve) => {
-
-    const listener = (id, info, tab) => {
-
-      if (
-        id === tabId &&
-        info.status === "complete" &&
-        tab.url.includes("?p_display_scratch=YES")
-      ) {
-        ext.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-
-    };
-
-    ext.tabs.onUpdated.addListener(listener);
-  });
-}
-async function runProcess(phones, promoCode) {
+/* ===============================
+   PROMO CHECK
+================================= */
+async function runPromoProcess(
+  phones,
+  promoCode
+) {
   let done = 0;
   const total = phones.length;
 
-  const CONCURRENT = 20; // mở 5 tab cùng lúc
+  const CONCURRENT = 20;
 
   sendProgress(done, total);
 
-  for (let i = 0; i < phones.length; i += CONCURRENT) {
-    const batch = phones.slice(i, i + CONCURRENT);
+  for (
+    let i = 0;
+    i < phones.length;
+    i += CONCURRENT
+  ) {
+    const batch = phones.slice(
+      i,
+      i + CONCURRENT
+    );
 
     await Promise.all(
       batch.map(async (phone) => {
         try {
-          console.log("[background] opening tab:", phone);
-
           const tab = await ext.tabs.create({
             url: TARGET_URL,
             active: false
@@ -179,22 +240,28 @@ async function runProcess(phones, promoCode) {
           const tabId = tab.id;
 
           await waitTabLoaded(tabId);
-          await sleep(AFTER_LOAD_DELAY_MS);
 
-          try {
-            await ext.tabs.sendMessage(tabId, {
+          await sleep(
+            AFTER_LOAD_DELAY_MS
+          );
+
+          await safeSendMessage(
+            tabId,
+            {
               type: "AUTO_FILL_PROMO",
               payload: {
                 phone,
                 promoCode
               }
-            });
-          } catch (e) {
-            console.warn("[background] send fail:", e);
-          }
+            }
+          );
 
-        } catch (err) {
-          console.error("[background] tab fail:", err);
+        } catch (error) {
+          console.error(
+            "[PROMO] fail:",
+            phone,
+            error
+          );
         }
 
         done++;
@@ -202,13 +269,112 @@ async function runProcess(phones, promoCode) {
       })
     );
 
-    await sleep(800); // nghỉ giữa batch
+    await sleep(800);
   }
 
   return total;
 }
 
+/* ===============================
+   HELPERS
+================================= */
 
+async function findCardTab() {
+  const tabs = await ext.tabs.query({});
+
+  return tabs.find(
+    (tab) =>
+      tab.url &&
+      tab.url.includes(CARD_URL_KEYWORD)
+  );
+}
+
+async function safeSendMessage(
+  tabId,
+  data,
+  retry = 10
+) {
+  for (let i = 0; i < retry; i++) {
+    try {
+      return await ext.tabs.sendMessage(
+        tabId,
+        data
+      );
+    } catch (error) {
+      await sleep(700);
+    }
+  }
+
+  throw new Error(
+    "Không kết nối được content.js"
+  );
+}
+
+async function waitResultPage(tabId) {
+  return new Promise((resolve) => {
+    let done = false;
+
+    const listener = async (
+      id,
+      info,
+      tab
+    ) => {
+      if (
+        id === tabId &&
+        info.status === "complete"
+      ) {
+        const url = tab.url || "";
+
+        if (
+          url.includes(
+            "?p_display_scratch=YES"
+          )
+        ) {
+          done = true;
+
+          ext.tabs.onUpdated.removeListener(
+            listener
+          );
+
+          resolve();
+        }
+      }
+    };
+
+    ext.tabs.onUpdated.addListener(
+      listener
+    );
+
+    setTimeout(() => {
+      if (!done) {
+        ext.tabs.onUpdated.removeListener(
+          listener
+        );
+
+        resolve();
+      }
+    }, 15000);
+  });
+}
+
+async function waitStableTab(tabId) {
+  for (let i = 0; i < 20; i++) {
+    try {
+      const tab = await ext.tabs.get(tabId);
+
+      if (
+        tab.url &&
+        tab.url.startsWith(
+          "https://10.38.45.87/"
+        )
+      ) {
+        return;
+      }
+    } catch (e) {}
+
+    await sleep(500);
+  }
+}
 
 function sendProgress(done, total) {
   try {
@@ -216,40 +382,44 @@ function sendProgress(done, total) {
       type: "PROMO_PROGRESS",
       payload: { done, total }
     });
-  } catch (error) {
-    console.warn("[background] progress send fail:", error);
-  }
+  } catch (error) {}
 }
 
 function waitTabLoaded(tabId) {
   return new Promise((resolve) => {
     let finished = false;
 
-    const listener = (updatedTabId, changeInfo) => {
+    const listener = (
+      updatedTabId,
+      changeInfo
+    ) => {
       if (
         updatedTabId === tabId &&
-        changeInfo.status === "complete" &&
+        changeInfo.status ===
+          "complete" &&
         !finished
       ) {
         finished = true;
 
-        ext.tabs.onUpdated.removeListener(listener);
-
-        console.log("[background] tab loaded:", tabId);
+        ext.tabs.onUpdated.removeListener(
+          listener
+        );
 
         resolve();
       }
     };
 
-    ext.tabs.onUpdated.addListener(listener);
+    ext.tabs.onUpdated.addListener(
+      listener
+    );
 
     setTimeout(() => {
       if (!finished) {
         finished = true;
 
-        ext.tabs.onUpdated.removeListener(listener);
-
-        console.log("[background] tab timeout loaded:", tabId);
+        ext.tabs.onUpdated.removeListener(
+          listener
+        );
 
         resolve();
       }
@@ -258,6 +428,7 @@ function waitTabLoaded(tabId) {
 }
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) =>
+    setTimeout(resolve, ms)
+  );
 }
-

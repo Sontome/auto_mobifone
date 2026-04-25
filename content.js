@@ -49,7 +49,7 @@
     }
     if (message.type === "READ_RESULT") {
       const el = document.querySelector(
-        'input[name="txtCardPass"]'
+        'input[name="txtCardType"]'
       );
     
       return Promise.resolve({

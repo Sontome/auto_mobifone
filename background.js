@@ -164,7 +164,8 @@ async function handleCardCheck(payload) {
       );
 
       await waitResultPage(tabId);
-      await sleep(1500);
+      
+      await sleep(3000);
 
       const result = await readCardResult(tabId);
       console.log(
@@ -199,20 +200,9 @@ async function handleCardCheck(payload) {
   };
 }
 async function readCardResult(tabId) {
-  const res = await ext.scripting.executeScript({
-    target: { tabId },
-    func: () => {
-      const el = document.querySelector(
-        'input[name="txtCardPass"]'
-      );
-
-      return {
-        pass: el?.value?.trim() || ""
-      };
-    }
-  });
-
-  return res?.[0]?.result || { pass: "" };
+  return await safeSendMessage(tabId, {
+    type: "READ_RESULT"
+  }, 20);
 }
 /* ===============================
    PROMO CHECK

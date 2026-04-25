@@ -105,8 +105,9 @@ async function handleCardCheck(payload) {
 
       console.log("[CARD] gửi message sang content.js");
 
-      await ext.tabs.executeScript(tabId, {
-        file: "content.js"
+      await ext.scripting.executeScript({
+        target: { tabId },
+        files: ["content.js"]
       });
       
       console.log("[CARD] đã inject content.js");

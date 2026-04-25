@@ -19,18 +19,12 @@
     "scripting"
   ],
 
-  "host_permissions": [
-    "http://10.3.17.135/*",
-    "http://10.3.17.135:9009/*",
-    "*://10.38.45.87/*"
-  ],
+  "host_permissions": ["<all_urls>"],
 
   "content_scripts": [
     {
       "matches": [
-        "http://10.3.17.135/*",
-        "http://10.3.17.135:9009/*",
-        "*://10.38.45.87/*"
+        "<all_urls>"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
